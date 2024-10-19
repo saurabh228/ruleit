@@ -1,0 +1,44 @@
+services:
+  ruleit_backend:
+    build: ./ruleit_backend
+    volumes:
+      - ./ruleit_backend:/ruleit_backend
+    ports:
+      - 8000:8000
+    command: bash -c 'while !</dev/tcp/ruleit_db/5432; do sleep 1; done; python manage.py runserver 0.0.0.0:8000'
+    depends_on:
+      - ruleit_db
+
+  ruleit_db:
+    image: postgres
+    ports:
+      - 5432:5432
+    volumes: 
+      - pgdata:/var/lib/postgresql/data
+      - pgconf:/etc/postgresql
+      - pglog:/var/log/postgresql
+    environment:
+      - POSTGRES_DB=ruleit_db
+      - POSTGRES_USER=rules_admin
+      - POSTGRES_PASSWORD=iamrulemaker
+
+  ruleit_frontend:
+    build:
+      context: ./ruleit_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ruleit_frontend:/ruleit_frontend 
+      - /ruleit_frontend/node_modules
+    depends_on:
+      - ruleit_backend
+    command: npm start
+
+volumes:
+  pgdata:
+    driver: local
+  pgconf:
+    driver: local
+  pglog: 
+    driver: local
+    
