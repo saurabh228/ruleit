@@ -5,7 +5,11 @@ services:
       - ./ruleit_backend:/ruleit_backend
     ports:
       - 8000:8000
-    command: bash -c 'while !</dev/tcp/ruleit_db/5432; do sleep 1; done; python manage.py runserver 0.0.0.0:8000'
+    environment:
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+      - DJANGO_SUPERUSER_PASSWORD=ruleitadmin
+    command: /ruleit_backend/entrypoint.sh
     depends_on:
       - ruleit_db
 
@@ -13,13 +17,13 @@ services:
     image: postgres
     ports:
       - 5432:5432
-    volumes: 
-      - pgdata:/var/lib/postgresql/data
-      - pgconf:/etc/postgresql
-      - pglog:/var/log/postgresql
+    # volumes: 
+    #   - pgdata:/var/lib/postgresql/data
+    #   - pgconf:/etc/postgresql
+    #   - pglog:/var/log/postgresql
     environment:
       - POSTGRES_DB=ruleit_db
-      - POSTGRES_USER=rules_admin
+      - POSTGRES_USER=rule_admin
       - POSTGRES_PASSWORD=iamrulemaker
 
   ruleit_frontend:
@@ -34,11 +38,11 @@ services:
       - ruleit_backend
     command: npm start
 
-volumes:
-  pgdata:
-    driver: local
-  pgconf:
-    driver: local
-  pglog: 
-    driver: local
+# volumes:
+#   pgdata:
+#     driver: local
+#   pgconf:
+#     driver: local
+#   pglog: 
+#     driver: local
     
