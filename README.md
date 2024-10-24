@@ -203,4 +203,4 @@ This structure allows for the dynamic and flexible representation of rules, enab
 ### Containerization
 - **Docker**: Docker is used to containerize the application, providing consistent environments for both development and production. This ensures that dependencies are properly managed and the application can run seamlessly across various systems.
 
-## Feel free to try the project and suggest any improvements. Lots of Love
+## Feel free to try the project and suggest any improvements.

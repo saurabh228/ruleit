@@ -131,12 +131,12 @@ const CreateRulePage = () => {
               <Grid container spacing={2} justifyContent="center">
                 <Grid item>
                   <Button variant="outlined" onClick={addRule}>
-                    Add Rule
+                    Combine Another Rule
                   </Button>
                 </Grid>
                 <Grid item>
                   <Button variant="contained" type="submit">
-                    Submit
+                    Submit Rule
                   </Button>
                 </Grid>
               </Grid>

@@ -81,10 +81,10 @@ const RulePage = () => {
     
     const handleUpdateRule = async () => {
 
-        const ruleString = tokens.join(' ');
+        const newRuleString = tokens.join(' ');
 
         try {
-            const response = await editRule({ rule_id: rule_id, rule_string: ruleString });
+            const response = await editRule({ rule_id: rule_id, new_rule_string: newRuleString });
             console.log('Rule edited:', response.data);
             
             alert('Rule Edited successfully!');
@@ -93,8 +93,8 @@ const RulePage = () => {
                 state: {
                   rule_id:response.data.rule_id,
                   rule_name: response.data.rule_name,
-                  rule_root_id: response.data.rule_root_id,
-                  rule_tokens: response.data.rule_tokens,
+                  rule_root_id: response.data.new_rule_root_id,
+                  rule_tokens: response.data.new_rule_tokens,
                 },
             });
 

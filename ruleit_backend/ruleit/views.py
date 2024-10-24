@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import create_rule, combine_rules, evaluate_rule, edit_rule
-from .models import Node, Rule
+from .models import Rule
 from .serializers import RuleSerializer
 from rest_framework.pagination import PageNumberPagination
 
@@ -37,6 +37,7 @@ from rest_framework.pagination import PageNumberPagination
                     'rule_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the created rule'),
                     'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the created rule'),
                     'root_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
+                    'rule_tokens': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='The rule string (Tokenized Array)'),
                 }
             )
         ),
@@ -139,9 +140,10 @@ def create_rule_view(request):
             openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
-                    'combined_rule_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the combined rule'),
-                    'combined_rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the combined rule'),
-                    'combined_root_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
+                    'rule_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the combined rule'),
+                    'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the combined rule'),
+                    'root_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
+                    'rule_tokens': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='The rule string (Tokenized Array)'),
                 }
             )
         ),
@@ -357,7 +359,7 @@ def evaluate_rule_view(request):
                                 'id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the rule'),
                                 'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the rule'),
                                 'rule_root': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
-                                'rule_string': openapi.Schema(type=openapi.TYPE_ARRAY, description='The rule string (Tokenized Array)'),
+                                'rule_tokens': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='The rule string (Tokenized Array)'),
                             }
                         )
                     )
@@ -410,7 +412,7 @@ def get_rules(request):
                     'id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the rule'),
                     'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the rule'),
                     'rule_root': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
-                    'rule_string': openapi.Schema(type=openapi.TYPE_ARRAY, description='The rule string (Tokenized Array)'),
+                    'rule_tokens': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='The rule string (Tokenized Array)'),
                 }
             )
         ),
@@ -446,7 +448,7 @@ def get_rule_by_id(request, rule_id):
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
-            'rule_string': openapi.Schema(
+            'new_rule_string': openapi.Schema(
                 type=openapi.TYPE_STRING, 
                 description='The rule string',
                 example="A > 10 AND color = yellow"
@@ -460,15 +462,16 @@ def get_rule_by_id(request, rule_id):
     ),
     responses={
         201: openapi.Response('Rule Edited successfully', 
-            openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'result': openapi.Schema(type=openapi.TYPE_STRING, description='Rule edited successfully'),
-                    'rule_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the created rule'),
-                    'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the created rule'),
-                    'root_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
-                }
-            )
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'result': openapi.Schema(type=openapi.TYPE_STRING, description='Rule edited successfully'),
+                        'rule_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the created rule'),
+                        'rule_name': openapi.Schema(type=openapi.TYPE_STRING, description='Name of the created rule'),
+                        'root_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the root node of the rule tree'),
+                        'rule_tokens': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='The rule string (Tokenized Array)'),
+                    }
+                )
         ),
         400: openapi.Response('Bad Request', 
             openapi.Schema(
@@ -479,29 +482,29 @@ def get_rule_by_id(request, rule_id):
             )
         ),
         500: openapi.Response('Internal server error', 
-            openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error message')
-                }
-            )
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, description='Error message')
+                    }
+                )
         )
     }
 )
 @api_view(['POST'])
 def edit_rule_view(request):
-    rule_string = request.data.get('rule_string')
+    new_rule_string = request.data.get('new_rule_string')
     rule_id = request.data.get('rule_id', None)
     # print("Creating Rule: ",rule_string)
 
     # Validate input
-    if not rule_string:
+    if not new_rule_string:
         return JsonResponse(
             {'error': 'The rule_string is required.'}, 
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if not isinstance(rule_string, str):
+    if not isinstance(new_rule_string, str):
         return JsonResponse(
             {'error': 'The rule_string must be a string.'}, 
             status=status.HTTP_400_BAD_REQUEST
@@ -515,13 +518,14 @@ def edit_rule_view(request):
 
     try:
         # Create the rule and its AST
-        rule_root = edit_rule(rule_string, rule_id)
+        rule_root = edit_rule(new_rule_string, rule_id)
 
         # Log the created rule details
         print('Rule Edited:', {
             'rule_id': rule_root.id,
             'rule_name': rule_root.rule_name,
-            'new_root_id': rule_root.rule_root.id
+            'new_root_id': rule_root.rule_root.id,
+            'new_rule_tokens': rule_root.rule_tokens.join(' ')
         })
 
         return JsonResponse(
@@ -529,8 +533,8 @@ def edit_rule_view(request):
                 'result': f'Rule edited with rule id {rule_root.id}',
                 'rule_id': rule_root.id, 
                 'rule_name': rule_root.rule_name, 
-                'rule_root_id': rule_root.rule_root.id,
-                'rule_tokens': rule_root.rule_tokens
+                'new_rule_root_id': rule_root.rule_root.id,
+                'new_rule_tokens': rule_root.rule_tokens
             }, 
             status=status.HTTP_201_CREATED
         )

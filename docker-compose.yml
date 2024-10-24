@@ -17,10 +17,10 @@ services:
     image: postgres
     ports:
       - 5432:5432
-    # volumes: 
-    #   - pgdata:/var/lib/postgresql/data
-    #   - pgconf:/etc/postgresql
-    #   - pglog:/var/log/postgresql
+    volumes: 
+      - pgdata:/var/lib/postgresql/data
+      - pgconf:/etc/postgresql
+      - pglog:/var/log/postgresql
     environment:
       - POSTGRES_DB=ruleit_db
       - POSTGRES_USER=rule_admin
@@ -40,11 +40,11 @@ services:
       - ruleit_backend
     command: npm start
 
-# volumes:
-#   pgdata:
-#     driver: local
-#   pgconf:
-#     driver: local
-#   pglog: 
-#     driver: local
+volumes:
+  pgdata:
+    driver: local
+  pgconf:
+    driver: local
+  pglog: 
+    driver: local
     
