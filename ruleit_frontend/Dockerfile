@@ -4,7 +4,7 @@
 FROM node:14
 
 # Set the working directory inside the container
-WORKDIR /app
+WORKDIR /ruleit_frontend
 
 # Copy the package.json and package-lock.json files
 COPY package*.json ./

@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-j*c=$(d-wldm=b@g-(yevhz%p7iur)q@!k4md=ndq051**7r79
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['ruleit_backend', 'localhost', '172.18.0.3', '0.0.0.0']
 
 
 # Application definition

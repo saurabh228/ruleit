@@ -125,7 +125,7 @@ def is_number(s):
         return False
 
 
-def create_rule(rule_string):
+def create_rule(rule_string, rule_name):
     """
     Create a tree from a rule string in postfix notation and save it to the database.
 
@@ -145,8 +145,9 @@ def create_rule(rule_string):
 
     # Tokenize and convert the rule string to postfix notation
     try:
-        postfix_tokens = infix_to_postfix(tokenize(rule_string))
-        print("tokens: ",postfix_tokens)
+        rule_tokens = tokenize(rule_string)
+        postfix_tokens = infix_to_postfix(rule_tokens)
+        # print("tokens: ",postfix_tokens)
     except Exception as e:
         raise ValueError(f"Error while processing rule string: {str(e)}")
 
@@ -190,19 +191,22 @@ def create_rule(rule_string):
 
     # Ensure that the stack contains the root node
     if len(stack) != 1:
-        print("stack:", stack)
+        # print("stack:", stack)
         raise ValueError("Invalid rule string: tree structure could not be formed.")
 
     # Create the rule in a transaction
     try:
         with transaction.atomic():
             rule = Rule.objects.create(rule_root=stack[0])
+            rule.rule_tokens = rule_tokens
+            rule.rule_name = rule_name
+            rule.save()
     except ValidationError as e:
         raise ValueError(f"Failed to save rule to the database: {str(e)}")
 
     return rule
 
-def combine_rules(rule_strings, operators):
+def combine_rules(combined_rule_name, rule_strings, operators):
     """
     Combines multiple rule strings into a single AST based on the provided operators.
 
@@ -226,7 +230,7 @@ def combine_rules(rule_strings, operators):
 
 
     # Create the combined rule AST
-    combined_rule_root = create_rule(combined_rules)
+    combined_rule_root = create_rule(combined_rules, combined_rule_name)
 
     return combined_rule_root
 
@@ -269,25 +273,31 @@ def evaluate_rule(ast_root, data):
         # Handle logical operators
         if ast_root.value == 'AND':
             left_value = evaluate_rule(ast_root.left, data)
+            if left_value == None: return None
+
             if not to_bool(left_value): 
-                print(f"operator: {ast_root.value}, returned: False")
+                # print(f"operator: {ast_root.value}, returned: False")
                 return False
             right_value = evaluate_rule(ast_root.right, data)
-            print(f"operator: {ast_root.value}, returned: {to_bool(right_value)}")
+            if right_value == None: return None
+            # print(f"operator: {ast_root.value}, returned: {to_bool(right_value)}")
             return to_bool(right_value)
 
         elif ast_root.value == 'OR':
             left_value = evaluate_rule(ast_root.left, data)
+            if left_value == None: return None
             if to_bool(left_value): 
-                print(f"operator: {ast_root.value}, returned: {to_bool(left_value)}")
+                # print(f"operator: {ast_root.value}, returned: {to_bool(left_value)}")
                 return True
             right_value = evaluate_rule(ast_root.right, data)
-            print(f"operator: {ast_root.value}, returned: {to_bool(right_value)}")
+            if right_value == None: return None
+            # print(f"operator: {ast_root.value}, returned: {to_bool(right_value)}")
             return to_bool(right_value)
         
         elif ast_root.value == 'XOR':
             left_value = evaluate_rule(ast_root.left, data)
             right_value = evaluate_rule(ast_root.right, data)
+            if left_value == None or right_value == None: return None
             return to_bool(left_value) != to_bool(right_value)
 
 
@@ -296,9 +306,9 @@ def evaluate_rule(ast_root, data):
         left_value = evaluate_rule(ast_root.left, data)
         right_value = evaluate_rule(ast_root.right, data)
 
-        print(f"op: {ast_root.value}, left: {left_value}, right: {right_value}")
+        # print(f"op: {ast_root.value}, left: {left_value}, right: {right_value}")
 
-        if left_value == None or right_value == None: return False
+        if left_value == None or right_value == None: return None
 
         # Convert left and right values to float for arithmetic comparisons if needed
         def to_float(val):
@@ -348,3 +358,84 @@ def evaluate_rule(ast_root, data):
 
     # If none of the cases match, raise an error
     raise Exception("unknown error occurred.")
+
+def edit_rule(rule_string, rule_id):
+    """
+    Create a tree from a rule string in postfix notation and save it to the database.
+
+    Parameters:
+    rule_string (str): The rule string to be processed.
+
+    Returns:
+    Rule: The created rule instance if successful.
+
+    Raises:
+    ValueError: If the rule_string is empty or invalid.
+    """
+
+    # Validate the rule string
+    if not rule_string:
+        raise ValueError("Rule string cannot be empty.")
+
+    # Tokenize and convert the rule string to postfix notation
+    try:
+        rule_tokens = tokenize(rule_string)
+        postfix_tokens = infix_to_postfix(rule_tokens)
+        # print("tokens: ",postfix_tokens)
+    except Exception as e:
+        raise ValueError(f"Error while processing rule string: {str(e)}")
+
+    stack = []
+    node_cache = {}
+
+    # Build the tree from postfix tokens
+    for token in postfix_tokens:
+        if token not in PRECEDENCE:  # Operand
+
+            # Find out if the token is a literal or a variable
+            node_type = 'literal' if token.startswith('"') or token.startswith("'") or is_number(token) else 'variable'
+
+            # Create a unique key for the node
+            key = NodeKey(node_type=node_type, value=token.strip('"\''))
+            # Check if the node already exists
+            if key in node_cache:
+                stack.append(node_cache[key])
+            else:
+                node = Node(node_type=node_type, value=token.strip('"\''))
+                node.save()
+                node_cache[key] = node
+                stack.append(node)
+        else:  # Operator
+            try:
+                right_node = stack.pop()
+                left_node = stack.pop()
+            except IndexError:
+                raise ValueError("Invalid rule string: insufficient operands for operators.")
+
+            key = NodeKey(node_type='operator', value=token, left=left_node, right=right_node)
+
+            # Check if the node already exists
+            if key in node_cache:
+                stack.append(node_cache[key])
+            else:
+                operator_node = Node(node_type='operator', value=token, left=left_node, right=right_node)
+                operator_node.save()
+                node_cache[key] = operator_node
+                stack.append(operator_node)
+
+    # Ensure that the stack contains the root node
+    if len(stack) != 1:
+        # print("stack:", stack)
+        raise ValueError("Invalid rule string: tree structure could not be formed.")
+
+    # Create the rule in a transaction
+    try:
+        with transaction.atomic():
+            rule = Rule.objects.get(id=rule_id)
+            rule.rule_tokens = rule_tokens
+            rule.rule_root = stack[0]
+            rule.save()
+    except ValidationError as e:
+        raise ValueError(f"Failed to save rule to the database: {str(e)}")
+
+    return rule

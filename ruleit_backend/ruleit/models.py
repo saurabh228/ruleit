@@ -1,6 +1,7 @@
 # models.py
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.contrib.postgres.fields import ArrayField
 
 class Node(models.Model):
     NODE_TYPE_CHOICES = (
@@ -24,3 +25,11 @@ class Node(models.Model):
 class Rule(models.Model):
     rule_name = models.CharField(max_length=225, null=True, blank=True, unique=True)
     rule_root = models.OneToOneField(Node, on_delete=models.CASCADE)
+    rule_tokens = ArrayField(
+        models.CharField(max_length=255),
+        blank=True,
+        null=True,
+        help_text="Stores the tokenized version of the rule string."
+    )
+    def __str__(self):
+        return self.rule_name or f"Rule id:{self.id}\nRule: {self.rule_tokens}"

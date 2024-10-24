@@ -31,6 +31,8 @@ services:
       context: ./ruleit_frontend
     ports:
       - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://ruleit_backend:8000/
     volumes:
       - ./ruleit_frontend:/ruleit_frontend 
       - /ruleit_frontend/node_modules
